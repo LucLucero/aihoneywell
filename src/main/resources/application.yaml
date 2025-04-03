@@ -1,0 +1,21 @@
+spring:
+  application:
+    name: aihoneywell
+  datasource:
+    url: jdbc:postgresql://localhost:5432/pgvectordb
+    username: lucianopg
+    password: lucianopg
+  ai:
+    openai:
+      api-key: ${OPENAI_API_KEY}
+      chat:
+        options:
+          model: gpt-4o-mini
+  vectorstore:
+    pgvector:
+     index-type: HNSW
+     distance-type: COSINE_DISTANCE
+     dimension: 1536
+  docker:
+    compose:
+      lifecycle-management: start_only
