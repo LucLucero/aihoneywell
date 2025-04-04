@@ -15,7 +15,7 @@ spring:
     pgvector:
      index-type: HNSW
      distance-type: COSINE_DISTANCE
-     dimension: 1536
+     dimension: 2000
   docker:
     compose:
       lifecycle-management: start_only
