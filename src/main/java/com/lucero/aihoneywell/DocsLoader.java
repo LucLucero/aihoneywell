@@ -6,6 +6,7 @@ import jakarta.annotation.PostConstruct;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.ai.document.Document;
+import org.springframework.ai.document.MetadataMode;
 import org.springframework.ai.reader.ExtractedTextFormatter;
 import org.springframework.ai.reader.pdf.PagePdfDocumentReader;
 import org.springframework.ai.reader.pdf.config.PdfDocumentReaderConfig;
@@ -18,6 +19,7 @@ import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 
 @Component
@@ -45,40 +47,34 @@ public class DocsLoader {
         if (count == 0) {
             log.info("Loading Spring Boot Reference PDF into Vector Store");
             var config = PdfDocumentReaderConfig.builder()
-                    .withPageExtractedTextFormatter(ExtractedTextFormatter.builder()
-                            .withNumberOfTopPagesToSkipBeforeDelete(100)
-                            .withNumberOfBottomTextLinesToDelete(15)
-                            .withNumberOfTopTextLinesToDelete(15)
-                            .build())
+                            .withPageExtractedTextFormatter(ExtractedTextFormatter.builder()
+                                    .withLeftAlignment(true)
+                                    .overrideLineSeparator("/n")
+                                    .build())
                     .withPagesPerDocument(1)
                     .build();
 
             //for(Resource resource : pdfReferences ) {
             var pdfReader = new PagePdfDocumentReader(pdfReferences, config);
-            var documents = pdfReader.read();
-            var textSplitter = new TokenTextSplitter(300, 50, 10, 500, false);
+            var documents = pdfReader.get();
+            var textSplitter = new TokenTextSplitter(200, 30, 10, 50000, true);
             var cleanedDocuments = new ArrayList<Document>();
 
             for (Document doc : documents) {
-
-                String cleaned = doc.getFormattedContent()
-                        .replaceAll("(?i)^.*caliper.*measurement.*$", "")
-                        .replaceAll("(?i)^.*honeywell.*$", "") // "Honeywell" em headers/footers
-                        .replaceAll("(?i)^.*rev\\s*\\d+.*$", "") // linhas com "Rev 01", etc
-                        .replaceAll("(?i)^.*page.*\\d+.*$", "") // "Page x"
-                        .replaceAll("(?i)^.*copyright.*$", "") // copyright
-                        .replaceAll("(?i)^.*confidentiality.*$", "") // confidentiality headers
-                        .replaceAll("(?i)^.*trademarks.*$", "") // etc
-                        .replaceAll("(?i)^.*contents.*$", "") // índice
-                        .replaceAll("(?m)^\\s*$", "") // remove linhas vazias
+                Map<String, Object> result = doc.getMetadata();
+                String cleaned = doc.getFormattedContent(MetadataMode.ALL)
+                        .replaceAll("(?i)^.*copyright.*$", "")
+                        .replaceAll("(?i)^.*confidentiality.*$", "")
+                        .replaceAll("(?i)^.*trademarks.*$", "")
+                        .replaceAll("(?m)^\\s*$", "")
                         .trim();
-
-                // Só adiciona se ainda tiver conteúdo
                 if (!cleaned.isEmpty()) {
-                    cleanedDocuments.add(new Document(cleaned, doc.getMetadata()));
+                    cleanedDocuments.add(new Document(cleaned, result));
                 }
             }
+
             vectorStore.accept(textSplitter.apply(cleanedDocuments));
+
             log.info("Application is ready");
         };
     }

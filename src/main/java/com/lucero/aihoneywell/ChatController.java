@@ -38,17 +38,18 @@ public class ChatController{
     }
 
 
+
+
     @PostMapping("/chat")
     public String chatClientAsking(@RequestParam(value = "message") String message){
 
         String userText = message;
-        List<Document> results = vectorStore.similaritySearch(SearchRequest.builder().query("message").topK(15).build());
-        log.info(message);
+        List<Document> results = vectorStore.similaritySearch(SearchRequest.builder().query("message").topK(200).build());
         log.info("Resultados da query {}", results);
         SystemPromptTemplate systemPromptTemplate = new SystemPromptTemplate(promptTemplate);
         Message systemMessage = systemPromptTemplate.createMessage(Map.of("input", userText, "documents", results));
-        log.info(systemMessage.toString());
-        Prompt prompt = new Prompt(systemMessage);
+        log.info(systemMessage.getText());
+        Prompt prompt = new Prompt(systemMessage.getText());
 
         return Objects.requireNonNull(chatClient.prompt(prompt).call().chatResponse()).getResults().toString();
     }

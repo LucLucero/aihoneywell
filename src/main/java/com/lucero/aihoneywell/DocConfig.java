@@ -15,8 +15,6 @@ public class DocConfig {
         PathMatchingResourcePatternResolver resolver = new PathMatchingResourcePatternResolver();
         return resolver.getResources("classpath:/docs/*.pdf");
     }
-
-
 }
 
 
