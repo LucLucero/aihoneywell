@@ -17,10 +17,7 @@ import org.springframework.core.io.Resource;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Component;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
+import java.util.*;
 
 @Component
 public class DocsLoader {
@@ -29,9 +26,9 @@ public class DocsLoader {
 
     private final JdbcClient jdbcClient;
     private final VectorStore vectorStore;
-    private final Resource pdfReferences;
+    private final Resource[] pdfReferences;
 
-    public DocsLoader(VectorStore vectorStore, @Value("classpath:/docs/caliper.pdf") Resource pdfReferences, JdbcClient jdbcClient) {
+    public DocsLoader(VectorStore vectorStore, Resource[] pdfReferences, JdbcClient jdbcClient) {
         this.vectorStore = vectorStore;
         this.pdfReferences = pdfReferences;
         this.jdbcClient = jdbcClient;
@@ -42,7 +39,6 @@ public class DocsLoader {
         Integer count = jdbcClient.sql("select count(*) from vector_store")
                 .query(Integer.class)
                 .single();
-
         log.info("Current count of the Vector Store: {}", count);
         if (count == 0) {
             log.info("Loading Spring Boot Reference PDF into Vector Store");
@@ -53,28 +49,27 @@ public class DocsLoader {
                                     .build())
                     .withPagesPerDocument(1)
                     .build();
+            for(Resource resource : pdfReferences ) {
+                var pdfReader = new PagePdfDocumentReader(resource, config);
+                var documents = pdfReader.get();
+                var textSplitter = new TokenTextSplitter(200, 30, 10, 50000, true);
+                var cleanedDocuments = new ArrayList<Document>();
 
-            //for(Resource resource : pdfReferences ) {
-            var pdfReader = new PagePdfDocumentReader(pdfReferences, config);
-            var documents = pdfReader.get();
-            var textSplitter = new TokenTextSplitter(200, 30, 10, 50000, true);
-            var cleanedDocuments = new ArrayList<Document>();
-
-            for (Document doc : documents) {
-                Map<String, Object> result = doc.getMetadata();
-                String cleaned = doc.getFormattedContent(MetadataMode.ALL)
-                        .replaceAll("(?i)^.*copyright.*$", "")
-                        .replaceAll("(?i)^.*confidentiality.*$", "")
-                        .replaceAll("(?i)^.*trademarks.*$", "")
-                        .replaceAll("(?m)^\\s*$", "")
-                        .trim();
-                if (!cleaned.isEmpty()) {
-                    cleanedDocuments.add(new Document(cleaned, result));
+                for (Document doc : documents) {
+                    Map<String, Object> result = doc.getMetadata();
+                    String cleaned = doc.getFormattedContent(MetadataMode.ALL)
+                            .replaceAll("(?i)^.*copyright.*$", "")
+                            .replaceAll("(?i)^.*confidentiality.*$", "")
+                            .replaceAll("(?i)^.*trademarks.*$", "")
+                            .replaceAll("(?m)^\\s*$", "")
+                            .trim();
+                    if (!cleaned.isEmpty()) {
+                        cleanedDocuments.add(new Document(cleaned, result));
+                    }
                 }
+
+                vectorStore.accept(textSplitter.apply(cleanedDocuments));
             }
-
-            vectorStore.accept(textSplitter.apply(cleanedDocuments));
-
             log.info("Application is ready");
         };
     }
