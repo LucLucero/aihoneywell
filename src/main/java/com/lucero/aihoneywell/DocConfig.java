@@ -13,7 +13,7 @@ public class DocConfig {
     @Bean
     public Resource[] pdfResources() throws IOException {
         PathMatchingResourcePatternResolver resolver = new PathMatchingResourcePatternResolver();
-        return resolver.getResources("classpath:/docs/*.pdf");
+        return resolver.getResources("classpath:/docs/financas/*.pdf");
     }
 }
 
